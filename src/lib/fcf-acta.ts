@@ -67,19 +67,61 @@ function contarTarjetasTabla($: cheerio.CheerioAPI, table: cheerio.Element): Tar
 export function scrapeTarjetasActa(html: string): TarjetasPartido {
   const $ = cheerio.load(html);
 
-  const tablasTargetes = $('table.acta-table')
-    .filter((_, table) => {
-      const titulo = $(table).find('thead th').first().text().trim();
-      return titulo === 'Targetes';
-    })
-    .toArray();
+  // En el acta, local y visitante suelen estar en columnas laterales (col-md-4),
+  // pero a veces solo aparece una tabla de "Targetes". Por eso buscamos por columna
+  // y usamos fallback global si cambia la estructura.
+  const columnasEquipos = $('div.col-md-4.p-0_ml').toArray();
 
-  if (tablasTargetes.length < 2) {
-    return { ...TARJETAS_VACIAS };
+  const obtenerTarjetasDeScope = (scope?: cheerio.Element): TarjetasEquipo => {
+    if (!scope) {
+      return { amarillas: 0, rojas: 0, amarillas_ct: 0, rojas_ct: 0 };
+    }
+
+    const tabla = $(scope)
+      .find('table.acta-table')
+      .filter((_, table) => $(table).find('thead th').first().text().trim() === 'Targetes')
+      .first()
+      .get(0);
+
+    if (!tabla) {
+      return { amarillas: 0, rojas: 0, amarillas_ct: 0, rojas_ct: 0 };
+    }
+
+    return contarTarjetasTabla($, tabla);
+  };
+
+  let local = obtenerTarjetasDeScope(columnasEquipos[0]);
+  let visitante = obtenerTarjetasDeScope(columnasEquipos[columnasEquipos.length - 1]);
+
+  // Fallback por si no detectamos por columnas.
+  if (
+    columnasEquipos.length === 0 ||
+    (local.amarillas +
+      local.rojas +
+      local.amarillas_ct +
+      local.rojas_ct +
+      visitante.amarillas +
+      visitante.rojas +
+      visitante.amarillas_ct +
+      visitante.rojas_ct ===
+      0)
+  ) {
+    const tablasTargetes = $('table.acta-table')
+      .filter((_, table) => {
+        const titulo = $(table).find('thead th').first().text().trim();
+        return titulo === 'Targetes';
+      })
+      .toArray();
+
+    if (tablasTargetes.length >= 1) {
+      local = contarTarjetasTabla($, tablasTargetes[0]);
+    }
+    if (tablasTargetes.length >= 2) {
+      visitante = contarTarjetasTabla($, tablasTargetes[1]);
+    } else {
+      visitante = { amarillas: 0, rojas: 0, amarillas_ct: 0, rojas_ct: 0 };
+    }
   }
-
-  const local = contarTarjetasTabla($, tablasTargetes[0]);
-  const visitante = contarTarjetasTabla($, tablasTargetes[1]);
 
   return {
     amarillas_local: local.amarillas,
