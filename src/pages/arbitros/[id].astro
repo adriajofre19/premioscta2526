@@ -130,13 +130,18 @@ const medias = {
           )}
 
           <div class="mt-4 flex flex-wrap items-center gap-3">
-            <a
-              href={`/arbitros/${id}?sync=1`}
-              class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-            >
-              Actualizar desde FCF
-            </a>
-            
+            <form id="sync-form" method="get" action={`/arbitros/${id}`}>
+              <input type="hidden" name="sync" value="1" />
+              <button
+                id="sync-btn"
+                type="submit"
+                class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300 disabled:hover:bg-blue-300"
+                disabled={shouldSync}
+                aria-busy={shouldSync ? 'true' : 'false'}
+              >
+                {shouldSync ? 'Actualizando desde FCF...' : 'Actualizar desde FCF'}
+              </button>
+            </form>
           </div>
 
           {syncMessage && <p class="mt-3 text-sm text-green-700">{syncMessage}</p>}
@@ -361,4 +366,15 @@ const medias = {
       </>
     )}
   </div>
+  <script>
+    const syncForm = document.getElementById('sync-form');
+    const syncBtn = document.getElementById('sync-btn');
+
+    syncForm?.addEventListener('submit', () => {
+      if (!(syncBtn instanceof HTMLButtonElement)) return;
+      syncBtn.disabled = true;
+      syncBtn.setAttribute('aria-busy', 'true');
+      syncBtn.textContent = 'Actualizando desde FCF...';
+    });
+  </script>
 </Layout>
