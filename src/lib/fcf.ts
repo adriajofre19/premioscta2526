@@ -4,10 +4,36 @@ import { fetchTarjetasActa } from './fcf-acta';
 
 const TEMPORADA = '2526';
 const DEPORTE = 'futbol-11';
+export const CATEGORIA_TERCERA_FEDERACIO = 'tercera-federacio';
+/** Valor en BD para el único grupo (grup-v) de Tercera Federació. */
+export const GRUPO_TERCERA_FEDERACIO = 5;
+const GRUPOS_NUMERICOS = ['1', '2', '3', '4'] as const;
 export const GRUPOS = [1, 2, 3, 4] as const;
 export const JORNADA_INICIO = 1;
 export const JORNADA_FIN = 30;
 const FETCH_DELAY_MS = 200;
+
+type CategoriaFetchConfig = {
+  grupoSlugs: readonly string[];
+  grupoDb: (grupoSlug: string) => number;
+  jornadaFin: number;
+};
+
+function getFetchConfig(categoria: string): CategoriaFetchConfig {
+  const slug = categoria.trim();
+  if (slug === CATEGORIA_TERCERA_FEDERACIO) {
+    return {
+      grupoSlugs: ['v'],
+      grupoDb: () => GRUPO_TERCERA_FEDERACIO,
+      jornadaFin: 34,
+    };
+  }
+  return {
+    grupoSlugs: GRUPOS_NUMERICOS,
+    grupoDb: (grupoSlug) => Number(grupoSlug),
+    jornadaFin: JORNADA_FIN,
+  };
+}
 
 export type PartidoScraped = {
   local: string;
@@ -38,9 +64,16 @@ function resolveActaUrl(href: string | undefined): string | null {
   return `https://www.fcf.cat/${trimmed}`;
 }
 
-export function buildUrlResultados(categoria: string, grupo: number, jornada: number) {
+export function buildUrlResultados(categoria: string, grupoSlug: string, jornada: number) {
   const slug = categoria.trim();
-  return `https://www.fcf.cat/resultats/${TEMPORADA}/${DEPORTE}/${slug}/grup-${grupo}/jornada-${jornada}`;
+  return `https://www.fcf.cat/resultats/${TEMPORADA}/${DEPORTE}/${slug}/grup-${grupoSlug}/jornada-${jornada}`;
+}
+
+export function formatGrupoLabel(categoria: string, grupo: number): string {
+  if (categoria.trim() === CATEGORIA_TERCERA_FEDERACIO && grupo === GRUPO_TERCERA_FEDERACIO) {
+    return 'V';
+  }
+  return String(grupo);
 }
 
 export function normalizar(texto: string) {
@@ -91,10 +124,12 @@ export async function fetchPartidosArbitro(categoria: string, nombreArbitro: str
   const nombreBuscado = normalizar(nombreArbitro);
   const partidosMap = new Map<string, PartidoScraped>();
   const errores: { grupo: number; jornada: number; mensaje: string }[] = [];
+  const { grupoSlugs, grupoDb, jornadaFin } = getFetchConfig(categoria);
 
-  for (let jornada = JORNADA_INICIO; jornada <= JORNADA_FIN; jornada++) {
-    for (const grupo of GRUPOS) {
-      const url = buildUrlResultados(categoria, grupo, jornada);
+  for (let jornada = JORNADA_INICIO; jornada <= jornadaFin; jornada++) {
+    for (const grupoSlug of grupoSlugs) {
+      const grupo = grupoDb(grupoSlug);
+      const url = buildUrlResultados(categoria, grupoSlug, jornada);
 
       try {
         const res = await fetch(url);
