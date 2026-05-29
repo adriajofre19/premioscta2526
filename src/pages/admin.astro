@@ -49,7 +49,10 @@ if (Astro.request.method === 'POST' && passwordOk) {
         const { error: dbError } = await supabase.from('arbitros').insert({ nombre, categoria });
 
         if (dbError) {
-          error = `No se pudo guardar: ${dbError.message}`;
+          const rls = /row-level security/i.test(dbError.message);
+          error = rls
+            ? 'Supabase bloquea el insert (RLS). En el SQL Editor ejecuta el script supabase/arbitros_rls.sql y vuelve a intentarlo.'
+            : `No se pudo guardar: ${dbError.message}`;
         } else {
           return Astro.redirect('/admin?ok=1');
         }
@@ -99,8 +102,9 @@ if (authed) {
 
     {!passwordOk && (
       <p class="mt-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900">
-        Configura <code class="rounded bg-amber-100 px-1 text-sm">ADMIN_PASSWORD</code> en tu archivo
-        <code class="rounded bg-amber-100 px-1 text-sm">.env</code> para usar esta página.
+        Configura <code class="rounded bg-amber-100 px-1 text-sm">ADMIN_PASSWORD</code> en
+        <code class="rounded bg-amber-100 px-1 text-sm">.env</code> o
+        <code class="rounded bg-amber-100 px-1 text-sm">.env.local</code> y reinicia el servidor de desarrollo.
       </p>
     )}
 
